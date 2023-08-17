@@ -13,7 +13,7 @@ class BasicPageGuard {
   BasicPageGuard(BufferPoolManager *bpm, Page *page) : bpm_(bpm), page_(page) {}
 
   BasicPageGuard(const BasicPageGuard &) = delete;
-  auto operator=(const BasicPageGuard &) -> BasicPageGuard & = delete;
+  auto operator=(const BasicPageGuard &) -> void = delete;
 
   /** TODO(P1): Add implementation
    *
