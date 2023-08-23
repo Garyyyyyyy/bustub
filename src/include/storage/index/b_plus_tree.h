@@ -17,6 +17,8 @@
 #include <queue>
 #include <shared_mutex>
 #include <string>
+#include <tuple>
+#include <utility>
 #include <vector>
 
 #include "common/config.h"
@@ -50,6 +52,8 @@ class Context {
   // Store the write guards of the pages that you're modifying here.
   std::deque<WritePageGuard> write_set_;
 
+  std::deque<std::tuple<page_id_t, int, bool>> index_;
+
   // You may want to use this when getting value, but not necessary.
   std::deque<ReadPageGuard> read_set_;
 
@@ -82,7 +86,7 @@ class BPlusTree {
   auto GetValue(const KeyType &key, std::vector<ValueType> *result, Transaction *txn = nullptr) -> bool;
 
   // Return the page id of the root node
-  auto GetRootPageId() -> page_id_t;
+  auto GetRootPageId() const -> page_id_t;
 
   // Index iterator
   auto Begin() -> INDEXITERATOR_TYPE;
@@ -149,6 +153,26 @@ class BPlusTree {
   int leaf_max_size_;
   int internal_max_size_;
   page_id_t header_page_id_;
+
+  void FindLeaf(const KeyType &key, Context &ctx, Transaction *txn = nullptr);
+  void FindLeafMut(const KeyType &key, Context &ctx, bool remove_flag, Transaction *txn);
+
+  void NewLeafPage(page_id_t &page_id, Transaction *txn = nullptr);
+
+  void SplitLeaf(LeafPage *leaf_page, KeyType &split_key, page_id_t &split_page_id, Transaction *txn = nullptr);
+  void SplitInternal(InternalPage *internal_page, KeyType &split_key, page_id_t &split_page_id,
+                     Transaction *txn = nullptr);
+
+  void Split(const KeyType &insert_key, Context &ctx);
+
+  void NewInternalPage(page_id_t &page_id, Transaction *txn = nullptr);
+  void SetRootPageId(BPlusTreeHeaderPage *page, page_id_t page_id);
+  void Merge(Context &ctx);
+  void MergeLeaf(Context &ctx, std::vector<std::pair<KeyType, page_id_t>> *insert_record,
+                 std::vector<int> *delete_record);
+  void MergeInternal(Context &ctx, std::vector<std::pair<KeyType, page_id_t>> *insert_record,
+                     std::vector<int> *delete_record);
+  auto FindLeftMostLeaf(Context &ctx) -> page_id_t;
 };
 
 /**

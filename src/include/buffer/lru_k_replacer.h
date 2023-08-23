@@ -15,7 +15,9 @@
 #include <limits>
 #include <list>
 #include <mutex>  // NOLINT
+#include <set>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "common/config.h"
@@ -165,6 +167,9 @@ class LRUKReplacer {
  private:
   // TODO(student): implement me! You can replace these member variables as you
   // like. Remove maybe_unused if you start using them.
+
+  std::set<std::pair<size_t, frame_id_t>> lru_k_;
+  std::set<std::pair<size_t, frame_id_t>> lru_less_k_;
   [[maybe_unused]] std::unordered_map<frame_id_t, LRUKNode> node_store_;
   [[maybe_unused]] size_t current_timestamp_{0};
   [[maybe_unused]] size_t curr_size_{0};

@@ -13,6 +13,7 @@
 #include <queue>
 #include <string>
 
+#include "concurrency/transaction.h"
 #include "storage/page/b_plus_tree_page.h"
 
 namespace bustub {
@@ -72,6 +73,16 @@ class BPlusTreeInternalPage : public BPlusTreePage {
    * @return the value at the index
    */
   auto ValueAt(int index) const -> ValueType;
+  auto Split(BPlusTreeInternalPage *that, Transaction *txn = nullptr) -> KeyType;
+  void Insert(const KeyType &key, const ValueType &value, const KeyComparator &comparator, Transaction *txn = nullptr);
+  /**
+   * @brief remove records by index ,not by key ,cause record[0] doesn't have the key.
+   * and must remove from right to left,which can hold the index correct
+   *
+   */
+  void Remove(int index, Transaction *txn = nullptr);
+  void Merge(BPlusTreeInternalPage *right_page, KeyType &l_key, KeyType &r_key, bool &remove,
+             const KeyComparator &comparator, Transaction *txn = nullptr);
 
   /**
    * @brief For test only, return a string representing all keys in

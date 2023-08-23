@@ -21,35 +21,35 @@ LRUKReplacer::LRUKReplacer(size_t num_frames, size_t k) : replacer_size_(num_fra
 
 auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
   std::scoped_lock<std::mutex> lock(latch_);
-  bool have_inf = false;
-  bool have_evict = false;
-  size_t mxtime = UINT64_MAX;
-  for (auto [frame_id_, node] : node_store_) {
-    if (!node.is_evictable_) {
-      continue;
-    }
-    have_evict = true;
-    if (node.history_.size() < k_) {
-      if (!have_inf) {
-        have_inf = true;
-        mxtime = UINT64_MAX;
-      }
-      if (node.history_.front() < mxtime) {
-        mxtime = node.history_.front();
+
+  {
+    for (auto [_, frame_id_] : lru_less_k_) {
+      LRUKNode &node = node_store_[frame_id_];
+      if (node.is_evictable_) {
+        lru_less_k_.erase({_, frame_id_});
+        node_store_.erase(frame_id_);
+        --curr_size_;
+
         *frame_id = frame_id_;
-      }
-    } else if (!have_inf) {
-      if (node.history_.front() < mxtime) {
-        mxtime = node.history_.front();
-        *frame_id = frame_id_;
+        return true;
       }
     }
   }
-  if (have_evict) {
-    node_store_.erase(*frame_id);
-    --curr_size_;
+  {
+    for (auto [_, frame_id_] : lru_k_) {
+      LRUKNode &node = node_store_[frame_id_];
+      if (node.is_evictable_) {
+        lru_k_.erase({_, frame_id_});
+        node_store_.erase(frame_id_);
+        --curr_size_;
+
+        *frame_id = frame_id_;
+        return true;
+      }
+    }
   }
-  return have_evict;
+
+  return false;
 }
 
 void LRUKReplacer::RecordAccess(frame_id_t frame_id, [[maybe_unused]] AccessType access_type) {
@@ -63,6 +63,7 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id, [[maybe_unused]] AccessType
   // creat new node
   if (node_store_.count(frame_id) == 0) {
     node_store_[frame_id] = LRUKNode(frame_id);
+    lru_less_k_.insert({current_timestamp_, frame_id});
   }
   //    auto &node = node_store_[frame_id];
   //    node.history_.push_back(current_timestamp_);
@@ -71,8 +72,18 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id, [[maybe_unused]] AccessType
   //    }
 
   node_store_[frame_id].history_.push_back(current_timestamp_);
-  if (node_store_[frame_id].history_.size() > k_) {
+
+  if (node_store_[frame_id].history_.size() == k_) {
+    size_t timestamp = node_store_[frame_id].history_.front();
+    lru_less_k_.erase({timestamp, frame_id});
+    lru_k_.insert({timestamp, frame_id});
+  } else if (node_store_[frame_id].history_.size() > k_) {
+    lru_k_.erase({node_store_[frame_id].history_.front(), frame_id});
     node_store_[frame_id].history_.pop_front();
+    lru_k_.insert({
+        node_store_[frame_id].history_.front(),
+        frame_id,
+    });
   }
   return void();
 }
@@ -99,8 +110,17 @@ void LRUKReplacer::Remove(frame_id_t frame_id) {
   if (node_store_.count(frame_id) == 0) {
     return void();
   }
-  BUSTUB_ASSERT(node_store_[frame_id].is_evictable_, "Remove is called on a non-evictable frame");
+  //  BUSTUB_ASSERT(node_store_[frame_id].is_evictable_, "Remove is called on a non-evictable frame");
 
+  LRUKNode &node = node_store_[frame_id];
+  if (!node.is_evictable_) {
+    throw("Remove is called on a non-evictable frame\n");
+  }
+  if (node.history_.size() < k_) {
+    lru_less_k_.erase({node.history_.front(), frame_id});
+  } else {
+    lru_k_.erase({node.history_.front(), frame_id});
+  }
   node_store_.erase(frame_id);
   --curr_size_;
   return void();

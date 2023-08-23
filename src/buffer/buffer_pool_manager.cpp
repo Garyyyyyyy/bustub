@@ -41,6 +41,7 @@ BufferPoolManager::BufferPoolManager(size_t pool_size, DiskManager *disk_manager
 BufferPoolManager::~BufferPoolManager() { delete[] pages_; }
 
 auto BufferPoolManager::NewPage(page_id_t *page_id) -> Page * {
+  *page_id = INVALID_PAGE_ID;
   std::scoped_lock<std::mutex> lock(latch_);
   frame_id_t frame_id;
   if (!free_list_.empty()) {
@@ -64,7 +65,7 @@ auto BufferPoolManager::NewPage(page_id_t *page_id) -> Page * {
     if (pages_[frame_id].is_dirty_) {
       disk_manager_->WritePage(pages_[frame_id].page_id_, pages_[frame_id].data_);
     }
-    replacer_->Remove(frame_id);
+    //    replacer_->Remove(frame_id);
 
     *page_id = AllocatePage();
 
@@ -120,7 +121,7 @@ auto BufferPoolManager::FetchPage(page_id_t page_id, [[maybe_unused]] AccessType
     if (pages_[frame_id].is_dirty_) {
       disk_manager_->WritePage(pages_[frame_id].page_id_, pages_[frame_id].data_);
     }
-    replacer_->Remove(frame_id);
+    //    replacer_->Remove(frame_id);
 
     page_table_.erase(pages_[frame_id].page_id_);
     page_table_[page_id] = frame_id;
